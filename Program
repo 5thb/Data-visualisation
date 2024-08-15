@@ -1,0 +1,195 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+from plotly.offline import iplot
+import plotly.graph_objs as go
+import tkinter as tk
+from tkinter import filedialog, simpledialog
+from plotly.offline import plot
+import numpy as np
+from sklearn.linear_model import LinearRegression
+
+def select_excel_file():
+    root = tk.Tk()
+    root.withdraw()  # Hide the root window
+    file_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx *.xls")])
+    root.destroy()  # Destroy the root window
+    return file_path
+
+def select_sheet(excel_file):
+    sheets = pd.ExcelFile(excel_file).sheet_names
+    root = tk.Tk()
+    root.withdraw()  # Hide the root window
+    top = tk.Toplevel(root)
+    top.title("Select Sheet")
+    sheet_var = tk.StringVar()
+    option_menu = tk.OptionMenu(top, sheet_var, *sheets)
+    option_menu.pack()
+    button = tk.Button(top, text="OK", command=top.destroy)
+    button.pack()
+    top.wait_window()
+    selected_sheet = sheet_var.get()
+    root.destroy()
+    if selected_sheet in sheets:
+        return selected_sheet
+    else:
+        return None
+
+def select_variables(df):
+    root = tk.Tk()
+    root.withdraw()  # Hide the root window
+    top = tk.Toplevel(root)
+    top.title("Select Variables")
+    x_var = tk.StringVar()
+    y_var = tk.StringVar()
+    x_option_menu = tk.OptionMenu(top, x_var, *df.columns)
+    x_option_menu.pack()
+    y_option_menu = tk.OptionMenu(top, y_var, *df.columns)
+    y_option_menu.pack()
+    button = tk.Button(top, text="OK", command=top.destroy)
+    button.pack()
+    top.wait_window()
+    x_variable = x_var.get()
+    y_variable = y_var.get()
+    root.destroy()
+    return x_variable, y_variable
+
+
+def view_data(df):
+    pd.set_option('display.max_columns', None)  # or replace None with the number of columns in df
+    pd.set_option('display.max_rows', None)  # or replace None with the number of rows in df
+    pd.set_option('display.expand_frame_repr', False)
+    pd.set_option('display.float_format', '{:.2f}'.format)
+    qx= print(df)
+    return qx
+
+
+def time_series_plot_with_regression(df):
+    # Select variables from the DataFrame
+    x_variable, y_variable = select_variables(df)
+
+    # Remove rows with missing values in the selected variables
+    df = df[[x_variable, y_variable]].dropna()
+
+    # Calculate percentage change
+    df['pct_change'] = df[y_variable].pct_change()
+
+    # Convert x data to numpy array for sklearn
+    x_data = np.array(range(len(df[x_variable]))).reshape(-1, 1)
+
+    # Fit a linear regression model to the data
+    model = LinearRegression()
+    model.fit(x_data, df[y_variable])
+
+    # Generate y values for the regression line
+    y_pred = model.predict(x_data)
+
+    # Plot the selected variables
+    dataplot = [go.Scatter(x=df[x_variable], y=df[y_variable], mode='markers', name='Data',
+                           hovertemplate = 'Date: %{x}<br>Value: %{y}<br>Percentage Change: %{text}%',
+                           text = [f'{x:.2%}' for x in df['pct_change']]),
+                go.Scatter(x=df[x_variable], y=y_pred, mode='lines', name='Regression Line')]
+    layout = go.Layout(title='Time Series Plot of ' + y_variable + ' vs ' + x_variable)
+    figplot = go.Figure(data=dataplot, layout=layout)
+    q = plot(figplot)
+    return q
+
+
+
+def bar_chart(df):
+    # Select variables from the DataFrame
+    x_variable, y_variable = select_variables(df)
+
+    databar = [go.Bar(x=df[x_variable], y=df[y_variable])]
+    layout = go.Layout(title='Bar Plot of ' + y_variable + ' vs ' + x_variable)
+    figbar = go.Figure(data=databar, layout=layout)
+    z = plot(figbar)
+    return z
+
+def line_chart(df):
+    # Select variables from the DataFrame
+    x_variable, y_variable = select_variables(df)
+
+    # Calculate percentage change
+    df['pct_change'] = df[y_variable].pct_change()
+
+    # Plot the selected variables
+    lineplot = [go.Scatter(x=df[x_variable], y=df[y_variable], mode='markers',
+                           hovertemplate = 'Date: %{x}<br>Value: %{y}<br>Percentage Change: %{text}%',
+                           text = [f'{x:.2%}' for x in df['pct_change']])]
+    lineout = go.Layout(title='Scatter Plot of ' + y_variable + ' vs ' + x_variable)
+    figplot = go.Figure(data=lineplot, layout=lineout)
+    p = plot(figplot)
+    return p
+
+
+def main_menu(df):
+    options = [
+        "View Data",
+        "Time Series Plot",
+        "Bar Chart",
+        "Line Chart",
+        "Exit"
+    ]
+    while True:
+        print("\n".join([f"{i + 1}. {option}" for i, option in enumerate(options)]))
+        choice = int(input("Enter the number of your choice: "))
+        if choice == 1:
+            view_data(df)
+        elif choice == 2:
+            time_series_plot_with_regression(df)
+        elif choice == 3:
+            bar_chart(df)
+        elif choice == 4:
+            line_chart(df)
+        elif choice == 5:
+            break
+        else:
+            print("Invalid choice. Please try again.")
+
+        # Create a new Tkinter window
+        root = tk.Tk()
+        root.withdraw()  # Hide the root window
+
+        # Create a new Toplevel window
+        top = tk.Toplevel(root)
+        top.title("Back to Menu")
+        # Ask if you want to go back to the main menu
+        label = tk.Label(top, text="Do you want to go back to the main menu?")
+        label.pack()
+        # Create a StringVar to hold the selected option
+        back_to_menu_var = tk.StringVar()
+
+        # Create the OptionMenu with the options "yes" and "no"
+        option_menu = tk.OptionMenu(top, back_to_menu_var, "Yes", "No")
+        option_menu.pack()
+
+        # Create a button that will destroy the window when clicked
+        button = tk.Button(top, text="OK", command=top.destroy)
+        button.pack()
+
+        # Start the Tkinter event loop
+        top.wait_window()
+
+        # Get the selected option
+        back_to_menu = back_to_menu_var.get()
+
+        # Destroy the root window
+        root.destroy()
+
+        if back_to_menu != 'yes':
+            break
+
+if __name__ == "__main__":
+    while True:
+        excel_file = select_excel_file()
+        if not excel_file:
+            print("No file selected. Exiting.")
+            break
+        selected_sheet = select_sheet(excel_file)
+        if not selected_sheet:
+            print("No sheet selected. Exiting.")
+            break
+        df = pd.read_excel(excel_file, sheet_name=selected_sheet)
+        print(f"Loaded data from {selected_sheet} sheet.")
+        main_menu(df)
